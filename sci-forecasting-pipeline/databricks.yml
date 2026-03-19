@@ -86,6 +86,7 @@ variables:
 
 workspace:
   host: https://<your-workspace-host>
+  #host: https://<your-workspace-host>
   # Source code synced here -- this is the folder users download.
   file_path: /Workspace/Users/${workspace.current_user.userName}/sci-forecasting-bundle/files
   # DAB state (Terraform, artifacts) lives in a hidden sibling directory
