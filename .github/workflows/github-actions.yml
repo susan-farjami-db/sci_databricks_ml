@@ -39,7 +39,7 @@ on:
 jobs:                                                                                                                                             
   deploy:
     name: Deploy bundle to ${{ github.event.inputs.target }}                                                                                      
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     environment: ${{ github.event.inputs.target }}
     defaults:                                                                                                                                     
       run:
@@ -67,7 +67,7 @@ jobs:
                   
   run_pipeline:
     name: Run forecasting pipeline (${{ github.event.inputs.target }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs: deploy
     if: ${{ github.event.inputs.run_pipeline == 'true' }}                                                                                         
     environment: ${{ github.event.inputs.target }}
