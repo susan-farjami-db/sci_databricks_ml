@@ -426,7 +426,7 @@ targets:
   qa:
     mode: production
     workspace:
-      host: FILL_IN_HERE  # TODO: Set to QA Azure Databricks workspace URL
+      host: https://<your-workspace-host>  # TODO: Set to QA Azure Databricks workspace URL
     variables:
       experiment_name: /Shared/sci-forecasting-qa
     resources:
