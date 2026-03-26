@@ -1,72 +1,93 @@
-# GitHub Actions workflow for SF Forecasting Pipeline (dev environment)
-#
-# Triggers:
-#   - Manual dispatch (workflow_dispatch) from the GitHub Actions UI
-#   - Scheduled daily at 06:00 UTC (approximates data-refresh trigger; adjust as needed)
-#
-# Prerequisites -- set these GitHub secrets:
-#   DATABRICKS_HOST           
-#   DATABRICKS_CLIENT_ID      Service Principal application (client) ID
-#   DATABRICKS_CLIENT_SECRET  Service Principal secret
+# GitHub Actions workflow for SF Forecasting Pipeline                                                                                            
+#                                                                                                                                                 
+# Supports multi-environment deployment (dev/qa) using GitHub Environments
+# for secret isolation. Each environment has its own Databricks workspace                                                                         
+# credentials stored as GitHub Environment secrets.                                                                                               
+#                                                                                                                                                 
+# Triggers:     
+#   - Manual dispatch (workflow_dispatch) from the GitHub Actions UI                                                                              
+#     - Target: choose dev or qa                                                                                                                  
+#     - Run pipeline: optionally run the pipeline after deploy
+#                                                                                                                                                 
+# Prerequisites:
+#   1. Create GitHub Environments ("dev" and "qa") in repo Settings > Environments                                                                
+#   2. Set these secrets in EACH environment:
+#      DATABRICKS_HOST            Databricks workspace URL                                                                                        
+#      DATABRICKS_CLIENT_ID       Service Principal application (client) ID
+#      DATABRICKS_CLIENT_SECRET   Service Principal secret                                                                                        
+#   3. Update databricks.yml with the QA workspace host URL
 
-name: Deploy and Run SF Forecasting (dev)
+  name: Deploy and Run SF Forecasting
+                                                                                                                                                    
+  on:                                                                                                                                               
+    workflow_dispatch:                                                                                                                              
+      inputs:     
+        target:
+          description: 'Deployment target'
+          required: true                                                                                                                            
+          default: 'dev'
+          type: choice                                                                                                                              
+          options:
+            - dev
+            - qa
+        run_pipeline:
+          description: 'Run pipeline after deploy?'                                                                                                 
+          required: true
+          default: true                                                                                                                             
+          type: boolean
 
-on:
-  workflow_dispatch:          # Manual trigger from GitHub Actions UI
+  jobs:                                                                                                                                             
+    deploy:
+      name: Deploy bundle to ${{ github.event.inputs.target }}                                                                                      
+      runs-on: migrator
+      environment: ${{ github.event.inputs.target }}
+      defaults:                                                                                                                                     
+        run:
+          working-directory: sci-forecasting-pipeline                                                                                               
+                  
+      env:
+        DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+        DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
+        DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}                                                                           
+   
+      steps:                                                                                                                                        
+        - name: Checkout repository
+          uses: actions/checkout@v4
 
-  # Uncomment the schedule below to approximate a data-refresh trigger.
-  # Adjust the cron expression to match your data refresh cadence.
-  # schedule:
-  #   - cron: "0 6 * * *"    # Daily at 06:00 UTC
+        - name: Install Databricks CLI                                                                                                              
+          run: |
+            curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sudo sh                                             
+            databricks --version
 
-env:
-  DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
-  DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
-  DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+        - name: Validate bundle
+          run: databricks bundle validate --target ${{ github.event.inputs.target }}
+                                                                                                                                                    
+        - name: Deploy bundle
+          run: databricks bundle deploy --target ${{ github.event.inputs.target }}                                                                  
+                  
+    run_pipeline:
+      name: Run forecasting pipeline (${{ github.event.inputs.target }})
+      runs-on: migrator                                                                                                                             
+      needs: deploy
+      if: ${{ github.event.inputs.run_pipeline == 'true' }}                                                                                         
+      environment: ${{ github.event.inputs.target }}
+      defaults:                                                                                                                                     
+        run:
+          working-directory: sci-forecasting-pipeline                                                                                               
+                  
+      env:
+        DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+        DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
+        DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}                                                                           
+   
+      steps:                                                                                                                                        
+        - name: Checkout repository
+          uses: actions/checkout@v4
 
-jobs:
-  deploy:
-    name: Deploy bundle to dev
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    defaults:
-      run:
-        working-directory: sci-forecasting-pipeline
+        - name: Install Databricks CLI                                                                                                              
+          run: |
+            curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sudo sh                                             
+            databricks --version
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install Databricks CLI
-        run: |
-          curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
-          databricks --version
-
-      - name: Validate bundle
-        run: databricks bundle validate --target dev
-
-      - name: Deploy bundle
-        run: databricks bundle deploy --target dev
-
-  run_pipeline:
-    name: Run forecasting pipeline
-    runs-on: ubuntu-latest
-    needs: deploy
-    permissions:
-      contents: read
-    defaults:
-      run:
-        working-directory: sci-forecasting-pipeline
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install Databricks CLI
-        run: |
-          curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
-          databricks --version
-
-      - name: Run pipeline
-        run: databricks bundle run --target dev sci_forecasting_pipeline
+        - name: Run pipeline
+          run: databricks bundle run --target ${{ github.event.inputs.target }} sci_forecasting_pipeline
