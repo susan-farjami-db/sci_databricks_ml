@@ -439,13 +439,13 @@ targets:
           name: SF Monitoring on Data Refresh
           parameters: *monitoring_parameters
           tasks: *monitoring_tasks
-          # Uncomment to enable monitoring trigger in QA:
-          # trigger:
-          #   table_update:
-          #     table_names:
-          #       - "${var.catalog}.${var.schema}.${var.data_table}"
-          #     condition: ANY_UPDATED
-          #     min_time_between_triggers_seconds: 3600
+          Uncomment to enable monitoring trigger in QA:
+          trigger:
+            table_update:
+              table_names:
+                - "${var.catalog}.${var.schema}.${var.data_table}"
+              condition: ANY_UPDATED
+              min_time_between_triggers_seconds: 3600
 
   prod:
     mode: production
